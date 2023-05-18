@@ -1,7 +1,18 @@
+mod generators;
+
 extern crate gtk;
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, HeaderBar, Box, Entry, ScrolledWindow, TextView, TextBuffer, TextIter, ComboBoxText, Orientation, Button, ReliefStyle, Adjustment, Label, SpinButton, Switch, ListBox, Popover, gdk};
+use gtk::{Application, ApplicationWindow, HeaderBar, Box, Entry, ScrolledWindow, TextView, TextBuffer, TextIter, ComboBoxText, Orientation, Button, ReliefStyle, Adjustment, Label, SpinButton, Switch, ListBox, Popover, gdk, EntryBuffer, TextTagTable};
 use gdk::{keys::constants as key, EventKey};
+use crate::generators::gptneo_generate;
+use tokio::runtime::Runtime;
+use tokio::runtime::Handle;
+use tokio::sync::Mutex;
+use std::sync::Arc;
+use tokio::task::spawn_local;
+
+use std::rc::Rc;
+use std::cell::RefCell;
 
 fn build_ui(application: &Application) {
     let window = ApplicationWindow::new(application);
@@ -28,6 +39,7 @@ fn build_ui(application: &Application) {
     scrolled_window.set_hexpand(true);
     scrolled_window.set_vexpand(true);
 
+    let text_buffer = TextBuffer::new(Some(&TextTagTable::new()));
     let text_view = TextView::new();
     text_view.set_wrap_mode(gtk::WrapMode::Word);
     text_view.set_editable(false);
@@ -38,15 +50,36 @@ fn build_ui(application: &Application) {
     scrolled_window.add(&text_view);
     main_box.pack_start(&scrolled_window, true, true, 0);
 
-    let entry = Entry::new();
+    let entry_buffer = EntryBuffer::new(None);
+    let entry = Entry::with_buffer(&entry_buffer);
+    let runtime = Rc::new(Runtime::new().unwrap());
+
     main_box.pack_start(&entry, false, false, 0);
+
+    let runtime = Arc::new(Mutex::new(tokio::runtime::Runtime::new().unwrap()));
+
+    entry.connect_activate(move |_| {
+        let entry_text = entry_buffer.text();
+        let runtime = runtime.clone();
+
+        spawn_local(async move {
+            let result = gptneo_generate().await;
+            // Process the result as needed
+            if let Err(e) = result {
+                eprintln!("Error generating text: {}", e);
+            }
+        });
+    });
 
     let send_button = Button::with_label("Send");
     send_button.set_relief(ReliefStyle::None);
+
     send_button.connect_clicked(move |_| {
-        entry.activate(); // Simulate Enter key press
-        entry.grab_focus();
+        let temp_entry = entry.clone();
+        temp_entry.activate(); // Simulate Enter key press
+        temp_entry.grab_focus();
     });
+
     header.pack_end(&send_button);
 
     let settings_button = Button::with_label("Settings");
