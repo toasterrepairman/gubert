@@ -1,6 +1,7 @@
 extern crate gtk;
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, HeaderBar, Box, Entry, ScrolledWindow, TextView, TextBuffer, TextIter, ComboBoxText, Orientation, Button, ReliefStyle, Adjustment, Label, SpinButton, Switch, ListBox, Popover};
+use gtk::{Application, ApplicationWindow, HeaderBar, Box, Entry, ScrolledWindow, TextView, TextBuffer, TextIter, ComboBoxText, Orientation, Button, ReliefStyle, Adjustment, Label, SpinButton, Switch, ListBox, Popover, gdk};
+use gdk::{keys::constants as key, EventKey};
 
 fn build_ui(application: &Application) {
     let window = ApplicationWindow::new(application);
@@ -122,6 +123,16 @@ fn build_ui(application: &Application) {
     vbox.pack_start(&main_box, true, true, 0);
 
     window.add(&vbox);
+    window.connect_key_press_event(|_, event| {
+        if let Some(key) = event.keyval().into() {
+            if event.state().contains(gdk::ModifierType::CONTROL_MASK) && key == key::q {
+                gtk::main_quit();
+                Inhibit(true);
+            }
+        }
+        Inhibit(false)
+    });
+
     window.show_all();
 }
 
