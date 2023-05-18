@@ -43,6 +43,10 @@ fn build_ui(application: &Application) {
 
     let send_button = Button::with_label("Send");
     send_button.set_relief(ReliefStyle::None);
+    send_button.connect_clicked(move |_| {
+        entry.activate(); // Simulate Enter key press
+        entry.grab_focus();
+    });
     header.pack_end(&send_button);
 
     let settings_button = Button::with_label("Settings");
