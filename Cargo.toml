@@ -1,0 +1,12 @@
+[package]
+name = "gubert"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+gio = "0.17.9"
+glib = "0.17.9"
+gtk = "0.17.1"
+rust-bert = "0.20.0"
