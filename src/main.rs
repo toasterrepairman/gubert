@@ -56,7 +56,8 @@ fn build_ui(application: &Application) {
 
     main_box.pack_start(&entry, false, false, 0);
 
-    let runtime = Arc::new(Mutex::new(tokio::runtime::Runtime::new().unwrap()));
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let handle = runtime.handle().clone();
 
     entry.connect_activate(move |_| {
         let text = entry_buffer.text();
