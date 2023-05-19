@@ -61,10 +61,8 @@ fn build_ui(application: &Application) {
 
     entry.connect_activate(move |_| {
         let text = entry_buffer.text();
-        // let model = model.clone();
 
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        runtime.spawn(async move {
+        handle.spawn(async move {
             let result = gptneo_generate().await;
             if let Err(err) = result {
                 eprintln!("Error generating text: {}", err);
