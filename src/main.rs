@@ -59,17 +59,18 @@ fn build_ui(application: &Application) {
     let runtime = Arc::new(Mutex::new(tokio::runtime::Runtime::new().unwrap()));
 
     entry.connect_activate(move |_| {
-        let entry_text = entry_buffer.text();
-        let runtime = runtime.clone();
+        let text = entry_buffer.text();
+        // let model = model.clone();
 
-        spawn_local(async move {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.spawn(async move {
             let result = gptneo_generate().await;
-            // Process the result as needed
-            if let Err(e) = result {
-                eprintln!("Error generating text: {}", e);
+            if let Err(err) = result {
+                eprintln!("Error generating text: {}", err);
             }
         });
     });
+
 
     let send_button = Button::with_label("Send");
     send_button.set_relief(ReliefStyle::None);
