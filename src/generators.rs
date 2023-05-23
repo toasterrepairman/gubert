@@ -4,14 +4,15 @@ use rust_bert::pipelines::text_generation::{TextGenerationConfig, TextGeneration
 use rust_bert::resources::{LocalResource, RemoteResource};
 use tch::Device;
 
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use std::path::PathBuf;
 use tokio::runtime::Runtime;
 use std::rc::Rc;
 
-pub async fn gptneo_generate() -> Result<String, anyhow::Error> {
+pub async fn gptneo_generate(prompt: &str, init: &str, max: u16, sampling: bool, stopping: bool, temp: f32, beams: u8) -> Result<String, anyhow::Error> {
     // Resources paths
-
+    println!("init resources");
+    println!("{:?}{:?}{:?}{:?}{:?}{:?}{:?}", &prompt, &init, &max, &sampling, &stopping, &temp, &beams);
     let config_resource = Box::new(RemoteResource::from_pretrained(
         GptNeoConfigResources::GPT_NEO_125M,
     ));
@@ -26,7 +27,7 @@ pub async fn gptneo_generate() -> Result<String, anyhow::Error> {
     ));
 
     // Set-up model
-
+    println!("init model");
     let generation_config = TextGenerationConfig {
         model_type: ModelType::GPTNeo,
         model_resource,
@@ -46,15 +47,16 @@ pub async fn gptneo_generate() -> Result<String, anyhow::Error> {
     let model = TextGenerationModel::new(generation_config)?;
 
     // Generate text
-
     let prompts = [
-        "It was a very nice and sunny",
-        "It was a gloom winter night, and",
+        &init,
+        &prompt,
     ];
     let output = model.generate(&prompts, None);
 
     let mut response = "";
 
+    // format output
+    println!("output answer");
     for sentence in output {
         let response = format!("{}{}", response, sentence);
     }

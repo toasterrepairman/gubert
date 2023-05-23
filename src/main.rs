@@ -56,29 +56,14 @@ fn build_ui(application: &Application) {
 
     main_box.pack_start(&entry, false, false, 0);
 
-    let runtime = tokio::runtime::Runtime::new().unwrap();
-    let handle = runtime.handle().clone();
-
-    entry.connect_activate(move |_| {
-        let text = entry_buffer.text();
-
-        handle.spawn(async move {
-            let result = gptneo_generate().await;
-            if let Err(err) = result {
-                eprintln!("Error generating text: {}", err);
-            }
-        });
-    });
-
-
     let send_button = Button::with_label("Send");
     send_button.set_relief(ReliefStyle::None);
 
-    send_button.connect_clicked(move |_| {
+    send_button.connect_clicked(glib::clone!(@weak entry => move |_| {
         let temp_entry = entry.clone();
         temp_entry.activate(); // Simulate Enter key press
         temp_entry.grab_focus();
-    });
+    }));
 
     header.pack_end(&send_button);
 
@@ -97,7 +82,8 @@ fn build_ui(application: &Application) {
 
     // Initial Prompt Entry
     let prompt_label = Label::new(Some("Initial prompt entry:"));
-    let prompt_entry = Entry::new();
+    let prompt_buffer = EntryBuffer::new(None);
+    let prompt_entry = Entry::with_buffer(&prompt_buffer);
     prompt_entry.set_text("A dialog, where User interacts with AI. AI is helpful, kind, honest, and knows its own limits.");
     let prompt_row = gtk::Box::new(Orientation::Horizontal, 5);
     prompt_row.pack_start(&prompt_label, false, false, 0);
@@ -158,6 +144,28 @@ fn build_ui(application: &Application) {
     let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
     vbox.pack_start(&header, false, false, 0);
     vbox.pack_start(&main_box, true, true, 0);
+
+    // handling the inference thread
+    let runtime = Runtime::new().unwrap();
+    let handle = runtime.handle().clone();
+
+    entry.connect_activate(glib::clone!(@weak entry => move |_| {
+        let text = entry_buffer.text();
+        let init = prompt_buffer.text();
+        let max = length_adjustment.value() as u16;
+        let sampling = sampling_switch.state();
+        let stopping = stopping_switch.state();
+        let temp = temperature_adjustment.value() as f32;
+        let beams = beam_adjustment.value() as u8;
+        println!("habbening =D");
+
+        handle.spawn(async move {
+            let result = gptneo_generate(&text, &init, max, sampling, stopping, temp, beams).await;
+            if let Err(err) = result {
+                eprintln!("Error generating text: {}", err);
+            }
+        });
+    }));
 
     window.add(&vbox);
     window.connect_key_press_event(|_, event| {
