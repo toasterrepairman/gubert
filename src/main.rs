@@ -1,4 +1,5 @@
 mod generators;
+mod llmgenerator;
 
 extern crate gtk;
 use gtk::prelude::*;
@@ -23,8 +24,8 @@ fn build_ui(application: &Application) {
     header.set_title(Some("AI Models"));
 
     let model_combo = ComboBoxText::new();
-    model_combo.append_text("Model 1");
-    model_combo.append_text("Model 2");
+    model_combo.append_text("GPT_Neo");
+    model_combo.append_text("None");
     // Add more AI models as needed
 
     header.pack_start(&model_combo);
@@ -42,10 +43,11 @@ fn build_ui(application: &Application) {
     let text_buffer = TextBuffer::new(Some(&TextTagTable::new()));
     let text_view = TextView::new();
     text_view.set_wrap_mode(gtk::WrapMode::Word);
-    text_view.set_editable(false);
+    text_view.set_editable(true);
 
-    let buffer = TextBuffer::new(None::<&gtk::TextTagTable>);
+    let mut buffer = TextBuffer::new(None::<&gtk::TextTagTable>);
     text_view.set_buffer(Some(&buffer));
+    buffer.set_text("How can I help you today?");
 
     scrolled_window.add(&text_view);
     main_box.pack_start(&scrolled_window, true, true, 0);
@@ -149,22 +151,23 @@ fn build_ui(application: &Application) {
     let runtime = Runtime::new().unwrap();
     let handle = runtime.handle().clone();
 
+    // on enter-press of the entrybox
     entry.connect_activate(glib::clone!(@weak entry => move |_| {
-        let text = entry_buffer.text();
+        let text = format!("{}{}", '\n', entry_buffer.text());
         let init = prompt_buffer.text();
         let max = length_adjustment.value() as u16;
         let sampling = sampling_switch.state();
         let stopping = stopping_switch.state();
         let temp = temperature_adjustment.value() as f32;
         let beams = beam_adjustment.value() as u8;
-        println!("habbening =D");
-
-        handle.spawn(async move {
-            let result = gptneo_generate(&text, &init, max, sampling, stopping, temp, beams).await;
-            if let Err(err) = result {
-                eprintln!("Error generating text: {}", err);
-            }
-        });
+        println!("habbening =D {}", &text);
+        // Get an iterator pointing to the end of the buffer
+        let mut end_iter = buffer.end_iter();
+        // Convert the iterator to a mutable iterator
+        let mut end_iter_mut = end_iter.clone();
+        // insert ebic threading code here ( you know ;) )
+        buffer.insert(&mut end_iter_mut, &text);
+        entry_buffer.set_text("");
     }));
 
     window.add(&vbox);
