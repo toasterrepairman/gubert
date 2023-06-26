@@ -10,6 +10,8 @@ use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 use std::sync::Arc;
 use tokio::task::spawn_local;
+use std::fs;
+use std::path::PathBuf;
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -17,17 +19,21 @@ use std::cell::RefCell;
 fn build_ui(application: &Application) {
     let window = ApplicationWindow::new(application);
     window.set_title("Chat with AI");
-    window.set_default_size(500, 400);
+    window.set_default_size(600, 400);
 
     let header = HeaderBar::new();
     header.set_title(Some("AI Models"));
 
     let model_combo = ComboBoxText::new();
-    model_combo.append_text("GPT_Neo");
-    model_combo.append_text("None");
-    // Add more AI models as needed
+    model_combo.set_hexpand(false);
+    let bin_files = enumerate_bin_files();
+    model_combo.set_size_request(50, -1);
+    for file_name in bin_files {
+        model_combo.append_text(&file_name);
+    }
 
     header.pack_start(&model_combo);
+    header.set_hexpand(false);
 
     let main_box = Box::new(Orientation::Vertical, 5);
     main_box.set_margin_top(10);
@@ -181,6 +187,26 @@ fn build_ui(application: &Application) {
     });
 
     window.show_all();
+}
+
+fn enumerate_bin_files() -> Vec<String> {
+    let dir_path = dirs::home_dir().unwrap().join(".ai");
+
+    let bin_files: Vec<String> = fs::read_dir(dir_path)
+        .unwrap()
+        .filter_map(|entry| {
+            let entry = entry.unwrap();
+            let path = entry.path();
+
+            if path.is_file() && path.extension().unwrap() == "bin" {
+                Some(path.file_name().unwrap().to_string_lossy().to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    bin_files
 }
 
 fn main() {
