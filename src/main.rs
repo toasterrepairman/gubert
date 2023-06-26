@@ -12,6 +12,8 @@ use std::sync::Arc;
 use tokio::task::spawn_local;
 use std::fs;
 use std::path::PathBuf;
+use std::thread;
+use rs_llama_cpp::{gpt_params_c, run_inference, str_to_mut_i8};
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -153,8 +155,7 @@ fn build_ui(application: &Application) {
     vbox.pack_start(&main_box, true, true, 0);
 
     // handling the inference thread
-    let runtime = Runtime::new().unwrap();
-    let handle = runtime.handle().clone();
+    let shared_data = Arc::new(Mutex::new(buffer.clone()));
 
     // on enter-press of the entrybox
     entry.connect_activate(glib::clone!(@weak entry => move |_| {
@@ -165,13 +166,16 @@ fn build_ui(application: &Application) {
         let stopping = stopping_switch.state();
         let temp = temperature_adjustment.value() as f32;
         let beams = beam_adjustment.value() as u8;
+        let model_name = std::string::String::from(model_combo.active_text().unwrap());
         println!("habbening =D {}", &text);
         // Get an iterator pointing to the end of the buffer
         let mut end_iter = buffer.end_iter();
         // Convert the iterator to a mutable iterator
         let mut end_iter_mut = end_iter.clone();
-        // insert ebic threading code here ( you know ;) )
         buffer.insert(&mut end_iter_mut, &text);
+        // insert ebic threading code here ( you know ;) )
+
+        // clear entry buffer
         entry_buffer.set_text("");
     }));
 
