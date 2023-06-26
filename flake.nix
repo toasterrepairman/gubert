@@ -52,7 +52,13 @@
                   ninja
                   git
                   wrapGAppsHook4
+                  # for llama:
+                  cmake
+                  llvmPackages.libclang
+                  llvmPackages.libcxxClang
                 ];
+                LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+                BINDGEN_EXTRA_CLANG_ARGS = "-isystem ${pkgs.llvmPackages.libclang.lib}/lib/clang/${pkgs.lib.getVersion pkgs.clang}/include";
             };
           };
         }

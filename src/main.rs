@@ -1,11 +1,10 @@
-mod generators;
-mod llmgenerator;
+// mod generators;
+// mod llmgenerator;
 
 extern crate gtk;
 use gtk::prelude::*;
 use gtk::{Application, ApplicationWindow, HeaderBar, Box, Entry, ScrolledWindow, TextView, TextBuffer, TextIter, ComboBoxText, Orientation, Button, ReliefStyle, Adjustment, Label, SpinButton, Switch, ListBox, Popover, gdk, EntryBuffer, TextTagTable};
 use gdk::{keys::constants as key, EventKey};
-use crate::generators::gptneo_generate;
 use tokio::runtime::Runtime;
 use tokio::runtime::Handle;
 use tokio::sync::Mutex;
