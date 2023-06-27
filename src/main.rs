@@ -7,13 +7,16 @@ use gtk::{Application, ApplicationWindow, HeaderBar, Box, Entry, ScrolledWindow,
 use gdk::{keys::constants as key, EventKey};
 use tokio::runtime::Runtime;
 use tokio::runtime::Handle;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex};
 use std::sync::Arc;
 use tokio::task::spawn_local;
 use std::fs;
 use std::path::PathBuf;
 use std::thread;
 use rs_llama_cpp::{gpt_params_c, run_inference, str_to_mut_i8};
+use futures::channel::mpsc::*;
+use futures::stream::StreamExt;
+use async_std::task;
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -155,7 +158,7 @@ fn build_ui(application: &Application) {
     vbox.pack_start(&main_box, true, true, 0);
 
     // handling the inference thread
-    let shared_data = Arc::new(Mutex::new(buffer.clone()));
+    let (sender, receiver) = mpsc::unbounded::<String>();
 
     // on enter-press of the entrybox
     entry.connect_activate(glib::clone!(@weak entry => move |_| {
