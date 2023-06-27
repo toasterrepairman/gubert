@@ -72,22 +72,6 @@
 
           # `nix build`
           defaultPackage = packages.${system}.default;
-
-          # `nix run`
-          apps.${name} = utils.lib.mkApp {
-            inherit name;
-            drv = packages.${name};
-          };
-          defaultApp = packages.${name};
-
-          # `nix develop`
-          devShells = {
-            default = pkgs.mkShell {
-              nativeBuildInputs = dependencies;
-              LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-              BINDGEN_EXTRA_CLANG_ARGS = "-isystem ${pkgs.llvmPackages.libclang.lib}/lib/clang/${pkgs.lib.getVersion pkgs.clang}/include";
-            };
-          };
         }
       );
 }
