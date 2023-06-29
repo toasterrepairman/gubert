@@ -24,8 +24,13 @@
           });
 
           dependencies = with pkgs; [
-            rustc
+            # for Rust
             cargo
+            rustc
+            rust-analyzer
+            rustfmt
+            cmake
+            # for GTK
             cairo
             gdk-pixbuf
             atk
@@ -46,7 +51,6 @@
             git
             wrapGAppsHook4
             # for llama:
-            cmake
             llvmPackages.libclang
             llvmPackages.libcxxClang
           ];
@@ -66,6 +70,8 @@
                 pkgs.gtk3
               ];
               LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+              GTK_THEME="Nordic";
+              RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
               BINDGEN_EXTRA_CLANG_ARGS = "-isystem ${pkgs.llvmPackages.libclang.lib}/lib/clang/${pkgs.lib.getVersion pkgs.clang}/include";
             };
           });

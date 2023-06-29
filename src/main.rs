@@ -16,7 +16,6 @@ use std::thread;
 use rs_llama_cpp::{gpt_params_c, run_inference, str_to_mut_i8};
 use futures::channel::mpsc::*;
 use futures::stream::StreamExt;
-use async_std::task;
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -24,7 +23,7 @@ use std::cell::RefCell;
 fn build_ui(application: &Application) {
     let window = ApplicationWindow::new(application);
     window.set_title("Chat with AI");
-    window.set_default_size(600, 400);
+    window.set_default_size(700, 400);
 
     let header = HeaderBar::new();
     header.set_title(Some("AI Models"));
@@ -156,9 +155,6 @@ fn build_ui(application: &Application) {
     let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
     vbox.pack_start(&header, false, false, 0);
     vbox.pack_start(&main_box, true, true, 0);
-
-    // handling the inference thread
-    let (sender, receiver) = mpsc::unbounded::<String>();
 
     // on enter-press of the entrybox
     entry.connect_activate(glib::clone!(@weak entry => move |_| {
