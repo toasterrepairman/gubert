@@ -35,6 +35,7 @@ fn build_ui(application: &Application) {
     for file_name in bin_files {
         model_combo.append_text(&file_name);
     }
+    model_combo.set_active(Some(0));
 
     header.pack_start(&model_combo);
     header.set_hexpand(false);
