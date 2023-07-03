@@ -11,3 +11,7 @@
 nix develop
 cargo run
 ```
+
+# Usage notes
+
+Requires a LLaMA-type model in `~/.ai/` currently. 

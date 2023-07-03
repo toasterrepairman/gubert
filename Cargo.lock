@@ -819,9 +819,9 @@ checksum = "436b050e76ed2903236f032a59761c1eb99e1b0aead2c257922771dab1fc8c78"
 
 [[package]]
 name = "rs-llama-cpp"
-version = "0.1.25"
+version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce83a443e696fe4c708edd91b480a733822fdeaeb3ea195b4f6440b8f61a5f4a"
+checksum = "b2514e3b7cccaefbfa70cf6adb6d200e53ca463e7ef9d25285fbffc358af053f"
 dependencies = [
  "bindgen",
 ]

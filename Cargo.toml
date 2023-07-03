@@ -12,5 +12,5 @@ gtk = "0.17.1"
 anyhow = "1.0.71"
 tokio = { version = "1.28.1", features = ["full"] }
 dirs = "5.0.1"
-rs-llama-cpp = "0.1.25"
+rs-llama-cpp = "0.1.30"
 futures = "0.3.28"

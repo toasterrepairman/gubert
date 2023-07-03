@@ -5,6 +5,10 @@ extern crate gtk;
 use gtk::prelude::*;
 use gtk::{Application, ApplicationWindow, HeaderBar, Box, Entry, ScrolledWindow, TextView, TextBuffer, TextIter, ComboBoxText, Orientation, Button, ReliefStyle, Adjustment, Label, SpinButton, Switch, ListBox, Popover, gdk, EntryBuffer, TextTagTable};
 use gdk::{keys::constants as key, EventKey};
+extern crate glib;
+use gtk::prelude::*;
+use glib::Sender;
+use std::thread;
 use tokio::runtime::Runtime;
 use tokio::runtime::Handle;
 use tokio::sync::{Mutex};
@@ -12,10 +16,10 @@ use std::sync::Arc;
 use tokio::task::spawn_local;
 use std::fs;
 use std::path::PathBuf;
-use std::thread;
 use rs_llama_cpp::{gpt_params_c, run_inference, str_to_mut_i8};
 use futures::channel::mpsc::*;
 use futures::stream::StreamExt;
+use std::io::{self, Write};
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -41,10 +45,10 @@ fn build_ui(application: &Application) {
     header.set_hexpand(false);
 
     let main_box = Box::new(Orientation::Vertical, 5);
-    main_box.set_margin_top(10);
-    main_box.set_margin_bottom(10);
-    main_box.set_margin_start(10);
-    main_box.set_margin_end(10);
+    main_box.set_margin_top(0);
+    main_box.set_margin_bottom(0);
+    main_box.set_margin_start(0);
+    main_box.set_margin_end(0);
 
     let scrolled_window = ScrolledWindow::new(None::<&Adjustment>, None::<&Adjustment>);
     scrolled_window.set_hexpand(true);
@@ -65,6 +69,7 @@ fn build_ui(application: &Application) {
     let entry_buffer = EntryBuffer::new(None);
     let entry = Entry::with_buffer(&entry_buffer);
     let runtime = Rc::new(Runtime::new().unwrap());
+    entry.set_margin_bottom(5);
 
     main_box.pack_start(&entry, false, false, 0);
 
@@ -212,6 +217,7 @@ fn enumerate_bin_files() -> Vec<String> {
 
     bin_files
 }
+
 
 fn main() {
     let application = Application::builder()
