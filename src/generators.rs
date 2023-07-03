@@ -1,68 +1,29 @@
-use rust_bert::gpt_neo::{GptNeoConfigResources, GptNeoMergesResources, GptNeoModelResources, GptNeoVocabResources};
-use rust_bert::pipelines::common::ModelType;
-use rust_bert::pipelines::text_generation::{TextGenerationConfig, TextGenerationModel};
-use rust_bert::resources::{LocalResource, RemoteResource};
-use tch::Device;
+use rs_llama_cpp::{gpt_params_c, run_inference, str_to_mut_i8};
 
-use anyhow::{Ok, Result};
-use std::path::PathBuf;
-use tokio::runtime::Runtime;
-use std::rc::Rc;
-
-pub async fn gptneo_generate(prompt: &str, init: &str, max: u16, sampling: bool, stopping: bool, temp: f32, beams: u8) -> Result<String, anyhow::Error> {
-    // Resources paths
-    println!("init resources");
-    println!("{:?}{:?}{:?}{:?}{:?}{:?}{:?}", &prompt, &init, &max, &sampling, &stopping, &temp, &beams);
-    let config_resource = Box::new(RemoteResource::from_pretrained(
-        GptNeoConfigResources::GPT_NEO_125M,
-    ));
-    let vocab_resource = Box::new(RemoteResource::from_pretrained(
-        GptNeoVocabResources::GPT_NEO_125M,
-    ));
-    let merges_resource = Box::new(RemoteResource::from_pretrained(
-        GptNeoMergesResources::GPT_NEO_125M,
-    ));
-    let model_resource = Box::new(RemoteResource::from_pretrained(
-        GptNeoModelResources::GPT_NEO_125M,
-    ));
-
-    // Set-up model
-    println!("init model");
-    let generation_config = TextGenerationConfig {
-        model_type: ModelType::GPTNeo,
-        model_resource,
-        config_resource,
-        vocab_resource,
-        merges_resource: Some(merges_resource),
-        min_length: 10,
-        max_length: Some(32),
-        do_sample: false,
-        early_stopping: true,
-        num_beams: 1,
-        num_return_sequences: 1,
-        device: Device::cuda_if_available(),
+pub fn generate(prompt: &str, init: &str, max: u16, sampling: bool, stopping: bool, temp: f32, beams: u8) -> String {
+    let mut tokens = String::new();
+    let params = gpt_params_c {
+        n_threads: 8,
+        temp: 0.0,
+        use_mlock: true,
+        model: str_to_mut_i8("./models/13B/ggml-model.bin"),
+        prompt: str_to_mut_i8(&format!("Here is a short greeting message in English: \"{}", prompt)),
         ..Default::default()
     };
 
-    let model = TextGenerationModel::new(generation_config)?;
+    run_inference(params, |x| {
+        tokens.push_str(x);
 
-    // Generate text
-    let prompts = [
-        &init,
-        &prompt,
-    ];
-    let output = model.generate(&prompts, None);
+        if x.ends_with("\"") {
+            false // stop inference
+        } else {
+            true // continue inference
+        }
+    });
 
-    let mut response = "";
-
-    // format output
-    println!("output answer");
-    for sentence in output {
-        let response = format!("{}{}", response, sentence);
-    }
-
-    Ok(response.to_string())
+    tokens
 }
+
 
 /*
 fn main() {

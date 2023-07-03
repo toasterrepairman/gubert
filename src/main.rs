@@ -11,7 +11,7 @@ use glib::Sender;
 use std::thread;
 use tokio::runtime::Runtime;
 use tokio::runtime::Handle;
-use tokio::sync::{Mutex};
+use tokio::sync::{mpsc, Mutex};
 use std::sync::Arc;
 use tokio::task::spawn_local;
 use std::fs;
@@ -20,6 +20,8 @@ use rs_llama_cpp::{gpt_params_c, run_inference, str_to_mut_i8};
 use futures::channel::mpsc::*;
 use futures::stream::StreamExt;
 use std::io::{self, Write};
+use glib::idle_add;
+use glib::Continue;
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -70,6 +72,9 @@ fn build_ui(application: &Application) {
     let entry = Entry::with_buffer(&entry_buffer);
     let runtime = Rc::new(Runtime::new().unwrap());
     entry.set_margin_bottom(5);
+    entry.set_margin_top(5);
+    entry.set_margin_start(5);
+    entry.set_margin_end(5);
 
     main_box.pack_start(&entry, false, false, 0);
 
@@ -179,6 +184,40 @@ fn build_ui(application: &Application) {
         let mut end_iter_mut = end_iter.clone();
         buffer.insert(&mut end_iter_mut, &text);
         // insert ebic threading code here ( you know ;) )
+        thread::spawn(move || {
+            // This closure will be executed in the new thread
+            glib::idle_add(move || {
+                // This closure will be executed in the main GTK thread
+                // Activate the widget here
+                // For example, you can set the widget's sensitivity to true
+                let params: gpt_params_c = {
+                    gpt_params_c {
+                        n_threads: 8,
+                        temp: 0.0,
+                        use_mlock: true,
+                        model: str_to_mut_i8("/home/toast/.ai/Wizard-Vicuna-7B-Uncensored.ggmlv3.q4_1.bin"),
+                        prompt: str_to_mut_i8("Here is a short greeting message in English: \""),
+                        ..Default::default()
+                    }
+                };
+                run_inference(params, |x| {
+                        if x.ends_with("\"") {
+                            print!("{}", x.replace("\"", ""));
+                            io::stdout().flush().unwrap();
+
+                            return true; // stop inference
+                        }
+
+                        print!("{}", x);
+                        io::stdout().flush().unwrap();
+
+                        return true; // continue inference
+                    });
+
+                // Returning false means the idle_add callback will not be called again
+                glib::Continue(false)
+            });
+        });
 
         // clear entry buffer
         entry_buffer.set_text("");
