@@ -60,6 +60,7 @@ fn build_ui(application: &Application) {
     let text_view = TextView::new();
     text_view.set_wrap_mode(gtk::WrapMode::Word);
     text_view.set_editable(true);
+    text_view.set_border_width(10);
 
     let mut buffer = TextBuffer::new(None::<&gtk::TextTagTable>);
     text_view.set_buffer(Some(&buffer));
@@ -195,24 +196,26 @@ fn build_ui(application: &Application) {
                         n_threads: 8,
                         temp: 0.0,
                         use_mlock: true,
-                        model: str_to_mut_i8("/home/toast/.ai/Wizard-Vicuna-7B-Uncensored.ggmlv3.q4_1.bin"),
+                        model: str_to_mut_i8(&format!("/home/toast/.ai/{}", model_name)),
                         prompt: str_to_mut_i8("Here is a short greeting message in English: \""),
                         ..Default::default()
                     }
                 };
+
+
                 run_inference(params, |x| {
-                        if x.ends_with("\"") {
-                            print!("{}", x.replace("\"", ""));
-                            io::stdout().flush().unwrap();
-
-                            return true; // stop inference
-                        }
-
-                        print!("{}", x);
+                    if x.ends_with("\"") {
+                        print!("{}", x.replace("\"", ""));
                         io::stdout().flush().unwrap();
 
-                        return true; // continue inference
-                    });
+                        return true; // stop inference
+                    }
+
+                    print!("{}", x);
+                    io::stdout().flush().unwrap();
+
+                    return true; // continue inference
+                });
 
                 // Returning false means the idle_add callback will not be called again
                 glib::Continue(false)
