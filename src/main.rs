@@ -194,7 +194,7 @@ fn build_ui(application: &Application) {
         let mut end_iter_mut = end_iter.clone();
         buffer.insert(&mut end_iter_mut, &text);
         // insert ebic threading code here ( you know ;) )
-        thread::spawn(move || {
+        let handle = thread::spawn(move || {
             let params: gpt_params_c = {
                 gpt_params_c {
                     n_threads: num_cpus,
@@ -217,13 +217,15 @@ fn build_ui(application: &Application) {
 
                     return true; // stop inference
                 }
-
                 print!("{}", x);
                 io::stdout().flush().unwrap();
 
                 return true; // continue inference
             });
+            return "nice";
         });
+
+        println!("{}", handle.join().unwrap());
 
         // clear entry buffer
         entry_buffer.set_text("");
