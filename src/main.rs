@@ -184,7 +184,9 @@ fn build_ui(application: &Application) {
         let temp = temperature_adjustment.value() as f32;
         let beams = beam_adjustment.value() as u8;
         let model_name = std::string::String::from(model_combo.active_text().unwrap());
-        let num_cpus = num_processors();
+        let num_cpus = thread_adjustment.value() as i32;
+        let buffertext = buffer.text(&buffer.start_iter(), &buffer.end_iter(), true).unwrap().clone();
+        let stupidassbufferclone = buffer.clone();
         println!("habbening =D {}", &text);
         // Get an iterator pointing to the end of the buffer
         let mut end_iter = buffer.end_iter();
@@ -193,40 +195,33 @@ fn build_ui(application: &Application) {
         buffer.insert(&mut end_iter_mut, &text);
         // insert ebic threading code here ( you know ;) )
         thread::spawn(move || {
-            let entrytext = text.clone();
-            // This closure will be executed in the new thread
-            glib::idle_add(move || {
-                // This closure will be executed in the main GTK thread
-                // Activate the widget here
-                // For example, you can set the widget's sensitivity to true
-                let params: gpt_params_c = {
-                    gpt_params_c {
-                        n_threads: 8,
-                        temp: temp,
-                        use_mlock: true,
-                        model: str_to_mut_i8(&format!("/home/toast/.ai/{}", model_name)),
-                        prompt: str_to_mut_i8(&format!("{}", &entrytext)),
-                        ..Default::default()
-                    }
-                };
+            let params: gpt_params_c = {
+                gpt_params_c {
+                    n_threads: num_cpus,
+                    // n_predict: max as i32,
+                    temp: temp,
+                    use_mlock: false,
+                    use_mmap: true,
+                    model: str_to_mut_i8(&format!("/home/toast/.ai/{}", model_name)),
+                    prompt: str_to_mut_i8(&buffertext),
+                    input_prefix: str_to_mut_i8(&init),
+                    input_suffix: str_to_mut_i8(&text),
+                    ..Default::default()
+                }
+            };
 
-
-                run_inference(params, |x| {
-                    if x.ends_with("\"") {
-                        print!("{}", x.replace("\"", ""));
-                        io::stdout().flush().unwrap();
-
-                        return true; // stop inference
-                    }
-
-                    print!("{}", x);
+            run_inference(params, |x| {
+                if x.ends_with("[end of text]") {
+                    print!("{}", x.replace("[end of text]", ""));
                     io::stdout().flush().unwrap();
 
-                    return true; // continue inference
-                });
+                    return true; // stop inference
+                }
 
-                // Returning false means the idle_add callback will not be called again
-                glib::Continue(false)
+                print!("{}", x);
+                io::stdout().flush().unwrap();
+
+                return true; // continue inference
             });
         });
 
