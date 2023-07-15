@@ -5,29 +5,18 @@ extern crate gtk;
 
 use anyhow::{Error, Ok};
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, HeaderBar, Box, Entry, ScrolledWindow, TextView, TextBuffer, TextIter, ComboBoxText, Orientation, Button, ReliefStyle, Adjustment, Label, SpinButton, Switch, ListBox, Popover, gdk, EntryBuffer, TextTagTable};
-use gdk::{keys::constants as key, EventKey};
+use gtk::{Application, ApplicationWindow, HeaderBar, Box, Entry, ScrolledWindow, TextView, TextBuffer, ComboBoxText, Orientation, Button, ReliefStyle, Adjustment, Label, SpinButton, Switch, ListBox, Popover, gdk, EntryBuffer, TextTagTable};
+use gdk::{keys::constants as key};
 extern crate glib;
-use gtk::prelude::*;
 use glib::{num_processors};
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::mpsc;
-use std::thread;
-use std::sync::Arc;
 use std::fs;
-use std::path::PathBuf;
 use llm_chain::output::StreamExt;
 use llm_chain::{executor, parameters, prompt};
-use futures::channel::mpsc::*;
-use std::io::{self, Write};
-use glib::idle_add;
-use std::sync::mpsc::*;
-use glib::Continue;
-use gtk::gdk::WindowTypeHint;
 use std::string::String;
 use llm_chain::options::ModelRef;
 use llm_chain::options;
-use {lazy_static::lazy_static, std::sync::RwLock};
 use users::get_current_username;
 
 use std::rc::Rc;
@@ -82,7 +71,7 @@ fn build_ui(application: &Application) {
     let entry_buffer = EntryBuffer::new(None);
     let entry = Entry::with_buffer(&entry_buffer);
     entry.set_margin_bottom(5);
-    entry.set_margin_top(5);
+    entry.set_margin_top(0);
     entry.set_margin_start(5);
     entry.set_margin_end(5);
     // put entry box at bottom of app window
@@ -122,7 +111,7 @@ fn build_ui(application: &Application) {
     settings_list.add(&prompt_row);
     // Maximum Generation Length
     let length_label = Label::new(Some("Maximum generation length:"));
-    let length_adjustment = Adjustment::new(256.0, 0.0, 2048.0, 1.0, 1.0, 0.0);
+    let length_adjustment = Adjustment::new(64.0, 0.0, 2048.0, 1.0, 1.0, 0.0);
     let length_spin_button = SpinButton::new(Some(&length_adjustment), 1.0, 0);
     length_spin_button.set_numeric(true);
     let length_row = gtk::Box::new(Orientation::Horizontal, 5);
@@ -136,9 +125,9 @@ fn build_ui(application: &Application) {
     sampling_row.pack_start(&sampling_switch, false, false, 0);
     sampling_row.pack_start(&sampling_label, false, false, 0);
     settings_list.add(&sampling_row);
-    // Stopping Switch
+    // Newline penalization Switch
     let stopping_switch = Switch::new();
-    let stopping_label = Label::new(Some("Early Stopping"));
+    let stopping_label = Label::new(Some("Penalize Newlines"));
     let stopping_row = gtk::Box::new(Orientation::Horizontal, 5);
     stopping_row.pack_start(&stopping_switch, false, false, 0);
     stopping_row.pack_start(&stopping_label, false, false, 0);
@@ -164,7 +153,7 @@ fn build_ui(application: &Application) {
     // Thread count
     let thread_limit = num_processors();
     let thread_label = Label::new(Some(&format!("Thread limit (1-{})", thread_limit)));
-    let thread_adjustment = Adjustment::new(2.0, 1.0, thread_limit as f64, 1.0, 1.0, 0.0);
+    let thread_adjustment = Adjustment::new((&thread_limit / 2) as f64, 1.0, thread_limit as f64, 1.0, 1.0, 0.0);
     let thread_spin_button = SpinButton::new(Some(&thread_adjustment), 1.0, 0);
     thread_spin_button.set_numeric(true);
     let thread_row = gtk::Box::new(Orientation::Horizontal, 5);
@@ -193,19 +182,22 @@ fn build_ui(application: &Application) {
         let beams = beam_adjustment.value() as u8;
         let model_name = std::string::String::from(model_combo.active_text().unwrap());
         let num_cpus = thread_adjustment.value() as i32;
-        let buffertext = buffer.text(&buffer.start_iter(), &buffer.end_iter(), true).unwrap().clone();
-        let stupidassbufferclone = buffer.clone();
         println!("habbening =D {}", &text);
         // Get an iterator pointing to the end of the buffer
-        let mut end_iter = buffer.end_iter();
+        let end_iter = buffer.end_iter();
         // Convert the iterator to a mutable iterator
         let mut end_iter_mut = end_iter.clone();
         println!("{} {}", init, text);
-        buffer.insert(&mut end_iter_mut, &format!("{}\n{}",
+        buffer.insert(&mut end_iter_mut, &format!(" {}\n{}",
             entry_buffer.text(),
             inference(
                 &format!("{} {}\n", init, text),
-                &model_name)
+                &model_name,
+                stopping,
+                num_cpus,
+                max as i32,
+                temp
+            )
             .unwrap()));
         // insert ebic threading code here ( you know ;) )
         entry_buffer.set_text("");
@@ -247,42 +239,48 @@ fn enumerate_bin_files() -> Vec<String> {
 }
 
 #[tokio::main(flavor = "current_thread")]
-async fn inference(prompt: &str, model: &str) -> Result<String, Error> {
+async fn inference(prompt: &str, model: &str, pen_nl: bool, threads: i32, max: i32, temp: f32) -> Result<String, Error> {
     let nuprompt = prompt;
     let opts = options!(
         Model: ModelRef::from_path(format!("{}/{}", dirs::home_dir().unwrap().join(".ai").display(), model)),
         ModelType: "llama",
-        MaxContextSize: 512_usize,
-        NThreads: 4_usize,
+        MaxContextSize: 256 as usize,
+        NThreads: threads as usize,
         MaxTokens: 0_usize,
         TopK: 40_i32,
         TopP: 0.95,
         TfsZ: 1.0,
         TypicalP: 1.0,
-        Temperature: 0.8,
+        Temperature: temp,
         RepeatPenalty: 1.1,
         RepeatPenaltyLastN: 64_usize,
-        FrequencyPenalty: 0.0,
+        FrequencyPenalty: 1.1,
         PresencePenalty: 0.0,
-        Mirostat: 0_i32,
+        Mirostat: 0 as i32,
         MirostatTau: 5.0,
         MirostatEta: 0.1,
-        PenalizeNl: true,
-        StopSequence: vec!["\n".to_string()]
+        PenalizeNl: pen_nl,
+        StopSequence: vec!["[end of text]".to_string(), "[ end of text ]".to_string(), "\n\n".to_string()]
     );
     let exec = executor!(llama, opts.clone())?;
     println!("Printing execution");
     let res = prompt!(nuprompt).run(&parameters!(), &exec).await?;
 
     // println!("{}", res.to_immediate().await?);
-    let mut endbuf = res.to_immediate().await?;
+    let mut endbuf = res.as_stream().await?;
+    let mut end = std::string::String::from("");
+    println!("Starting execution");
 
-    Ok(endbuf.get_content().to_text())
+    while let Some(v) = endbuf.next().await {
+        end.push_str(&format!("{}", v));
+    }
+
+    Ok(end)
 }
 
 fn main() {
     let application = Application::builder()
-        .application_id("com.example.chat_ai")
+        .application_id("com.toaster.gubert")
         .build();
 
     application.connect_activate(|app| {
