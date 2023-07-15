@@ -23,6 +23,7 @@ use std::io::{self, Write};
 use glib::idle_add;
 use std::sync::mpsc::*;
 use glib::Continue;
+use gtk::gdk::WindowTypeHint;
 use std::string::String;
 use llm_chain::options::ModelRef;
 use llm_chain::options;
@@ -30,10 +31,6 @@ use {lazy_static::lazy_static, std::sync::RwLock};
 
 use std::rc::Rc;
 use std::cell::RefCell;
-
-lazy_static! {
-    static ref HELL_VAR: RwLock<String> = Default::default();
-}
 
 fn build_ui(application: &Application) {
     // Define window attributes
@@ -43,6 +40,7 @@ fn build_ui(application: &Application) {
     // prep headerbar
     let header = HeaderBar::new();
     header.set_title(Some("AI Models"));
+    header.set_show_close_button(true);
     // create combobox for headerbar
     let model_combo = ComboBoxText::new();
     model_combo.set_hexpand(false);
@@ -60,6 +58,7 @@ fn build_ui(application: &Application) {
     main_box.set_margin_bottom(0);
     main_box.set_margin_start(0);
     main_box.set_margin_end(0);
+
     // initialize scrolling container
     let scrolled_window = ScrolledWindow::new(None::<&Adjustment>, None::<&Adjustment>);
     scrolled_window.set_hexpand(true);
@@ -179,7 +178,7 @@ fn build_ui(application: &Application) {
     });
 
     let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    vbox.pack_start(&header, false, false, 0);
+    // vbox.pack_start(&header, false, false, 0);
     vbox.pack_start(&main_box, true, true, 0);
 
     // on enter-press of the entrybox
@@ -202,7 +201,7 @@ fn build_ui(application: &Application) {
         let mut end_iter_mut = end_iter.clone();
         println!("{} {}", init, text);
         buffer.insert(&mut end_iter_mut, &format!("{}\n{}",
-            &text,
+            entry_buffer.text(),
             inference(
                 &format!("{} {}\n", init, text),
                 &model_name)
@@ -222,6 +221,7 @@ fn build_ui(application: &Application) {
         Inhibit(false)
     });
 
+    window.set_titlebar(Some(&header));
     window.show_all();
 }
 
