@@ -28,6 +28,7 @@ use std::string::String;
 use llm_chain::options::ModelRef;
 use llm_chain::options;
 use {lazy_static::lazy_static, std::sync::RwLock};
+use users::get_current_username;
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -249,7 +250,7 @@ fn enumerate_bin_files() -> Vec<String> {
 async fn inference(prompt: &str, model: &str) -> Result<String, Error> {
     let nuprompt = prompt;
     let opts = options!(
-        Model: ModelRef::from_path(format!("/home/toast/.ai/{}", model)),
+        Model: ModelRef::from_path(format!("{}/{}", dirs::home_dir().unwrap().join(".ai").display(), model)),
         ModelType: "llama",
         MaxContextSize: 512_usize,
         NThreads: 4_usize,
