@@ -184,7 +184,7 @@ fn build_ui(application: &Application) {
 
     // on enter-press of the entrybox
     entry.connect_activate(glib::clone!(@weak entry => move |_| {
-        let text = format!("{}{}", '\n', entry_buffer.text());
+        let text = format!("{:?}\n{}", buffer.text(&buffer.start_iter(), &buffer.end_iter(), true).unwrap(), entry_buffer.text());
         let init = prompt_buffer.text();
         let max = length_adjustment.value() as u16;
         let sampling = sampling_switch.state();
@@ -200,9 +200,12 @@ fn build_ui(application: &Application) {
         let mut end_iter = buffer.end_iter();
         // Convert the iterator to a mutable iterator
         let mut end_iter_mut = end_iter.clone();
+        println!("{} {}", init, text);
         buffer.insert(&mut end_iter_mut, &format!("{}\n{}",
             &text,
-            inference(&format!("{} {}\n", init, text), &model_name)
+            inference(
+                &format!("{} {}\n", init, text),
+                &model_name)
             .unwrap()));
         // insert ebic threading code here ( you know ;) )
         entry_buffer.set_text("");
@@ -244,7 +247,7 @@ fn enumerate_bin_files() -> Vec<String> {
 
 #[tokio::main(flavor = "current_thread")]
 async fn inference(prompt: &str, model: &str) -> Result<String, Error> {
-    let prompt = prompt;
+    let nuprompt = prompt;
     let opts = options!(
         Model: ModelRef::from_path(format!("/home/toast/.ai/{}", model)),
         ModelType: "llama",
@@ -268,18 +271,12 @@ async fn inference(prompt: &str, model: &str) -> Result<String, Error> {
     );
     let exec = executor!(llama, opts.clone())?;
     println!("Printing execution");
-    let res = prompt!(prompt).run(&parameters!(), &exec).await?;
+    let res = prompt!(nuprompt).run(&parameters!(), &exec).await?;
 
     // println!("{}", res.to_immediate().await?);
-    let mut endbuf = res.as_stream().await?;
-    let mut end = std::string::String::from("");
-    println!("Starting execution");
+    let mut endbuf = res.to_immediate().await?;
 
-    while let Some(v) = endbuf.next().await {
-        end.push_str(&format!("{}", v));
-    }
-
-    Ok(end)
+    Ok(endbuf.get_content().to_text())
 }
 
 fn main() {
