@@ -2,29 +2,38 @@
 // mod llmgenerator;
 
 extern crate gtk;
+
+use anyhow::{Error, Ok};
 use gtk::prelude::*;
 use gtk::{Application, ApplicationWindow, HeaderBar, Box, Entry, ScrolledWindow, TextView, TextBuffer, TextIter, ComboBoxText, Orientation, Button, ReliefStyle, Adjustment, Label, SpinButton, Switch, ListBox, Popover, gdk, EntryBuffer, TextTagTable};
 use gdk::{keys::constants as key, EventKey};
 extern crate glib;
 use gtk::prelude::*;
-use glib::{num_processors, Sender};
+use glib::{num_processors};
+use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc;
 use std::thread;
-use tokio::runtime::Runtime;
-use tokio::runtime::Handle;
-use tokio::sync::{mpsc, Mutex};
 use std::sync::Arc;
-use tokio::task::spawn_local;
 use std::fs;
 use std::path::PathBuf;
-use rs_llama_cpp::{gpt_params_c, run_inference, str_to_mut_i8};
+use llm_chain::output::StreamExt;
+use llm_chain::{executor, parameters, prompt};
 use futures::channel::mpsc::*;
-use futures::stream::StreamExt;
 use std::io::{self, Write};
 use glib::idle_add;
+use std::sync::mpsc::*;
 use glib::Continue;
+use std::string::String;
+use llm_chain::options::ModelRef;
+use llm_chain::options;
+use {lazy_static::lazy_static, std::sync::RwLock};
 
 use std::rc::Rc;
 use std::cell::RefCell;
+
+lazy_static! {
+    static ref HELL_VAR: RwLock<String> = Default::default();
+}
 
 fn build_ui(application: &Application) {
     // Define window attributes
@@ -72,7 +81,6 @@ fn build_ui(application: &Application) {
     // create entry box
     let entry_buffer = EntryBuffer::new(None);
     let entry = Entry::with_buffer(&entry_buffer);
-    let runtime = Rc::new(Runtime::new().unwrap());
     entry.set_margin_bottom(5);
     entry.set_margin_top(5);
     entry.set_margin_start(5);
@@ -107,7 +115,7 @@ fn build_ui(application: &Application) {
     let prompt_label = Label::new(Some("Initial prompt entry:"));
     let prompt_buffer = EntryBuffer::new(None);
     let prompt_entry = Entry::with_buffer(&prompt_buffer);
-    prompt_entry.set_text("A dialog, where User interacts with AI. AI is helpful, kind, honest, and knows its own limits.");
+    prompt_entry.set_text("I am an AI chatbot, trained on large amounts of human knowledge to answer your every question. You asked me:");
     let prompt_row = gtk::Box::new(Orientation::Horizontal, 5);
     prompt_row.pack_start(&prompt_label, false, false, 0);
     prompt_row.pack_start(&prompt_entry, true, true, 0);
@@ -192,42 +200,11 @@ fn build_ui(application: &Application) {
         let mut end_iter = buffer.end_iter();
         // Convert the iterator to a mutable iterator
         let mut end_iter_mut = end_iter.clone();
-        buffer.insert(&mut end_iter_mut, &text);
+        buffer.insert(&mut end_iter_mut, &format!("{}\n{}",
+            &text,
+            inference(&format!("{} {}\n", init, text), &model_name)
+            .unwrap()));
         // insert ebic threading code here ( you know ;) )
-        let handle = thread::spawn(move || {
-            let params: gpt_params_c = {
-                gpt_params_c {
-                    n_threads: num_cpus,
-                    // n_predict: max as i32,
-                    temp: temp,
-                    use_mlock: false,
-                    use_mmap: true,
-                    model: str_to_mut_i8(&format!("/home/toast/.ai/{}", model_name)),
-                    prompt: str_to_mut_i8(&buffertext),
-                    input_prefix: str_to_mut_i8(&init),
-                    input_suffix: str_to_mut_i8(&text),
-                    ..Default::default()
-                }
-            };
-
-            run_inference(params, |x| {
-                if x.ends_with("[end of text]") {
-                    print!("{}", x.replace("[end of text]", ""));
-                    io::stdout().flush().unwrap();
-
-                    return true; // stop inference
-                }
-                print!("{}", x);
-                io::stdout().flush().unwrap();
-
-                return true; // continue inference
-            });
-            return "nice";
-        });
-
-        println!("{}", handle.join().unwrap());
-
-        // clear entry buffer
         entry_buffer.set_text("");
     }));
 
@@ -265,6 +242,45 @@ fn enumerate_bin_files() -> Vec<String> {
     bin_files
 }
 
+#[tokio::main(flavor = "current_thread")]
+async fn inference(prompt: &str, model: &str) -> Result<String, Error> {
+    let prompt = prompt;
+    let opts = options!(
+        Model: ModelRef::from_path(format!("/home/toast/.ai/{}", model)),
+        ModelType: "llama",
+        MaxContextSize: 512_usize,
+        NThreads: 4_usize,
+        MaxTokens: 0_usize,
+        TopK: 40_i32,
+        TopP: 0.95,
+        TfsZ: 1.0,
+        TypicalP: 1.0,
+        Temperature: 0.8,
+        RepeatPenalty: 1.1,
+        RepeatPenaltyLastN: 64_usize,
+        FrequencyPenalty: 0.0,
+        PresencePenalty: 0.0,
+        Mirostat: 0_i32,
+        MirostatTau: 5.0,
+        MirostatEta: 0.1,
+        PenalizeNl: true,
+        StopSequence: vec!["\n".to_string()]
+    );
+    let exec = executor!(llama, opts.clone())?;
+    println!("Printing execution");
+    let res = prompt!(prompt).run(&parameters!(), &exec).await?;
+
+    // println!("{}", res.to_immediate().await?);
+    let mut endbuf = res.as_stream().await?;
+    let mut end = std::string::String::from("");
+    println!("Starting execution");
+
+    while let Some(v) = endbuf.next().await {
+        end.push_str(&format!("{}", v));
+    }
+
+    Ok(end)
+}
 
 fn main() {
     let application = Application::builder()

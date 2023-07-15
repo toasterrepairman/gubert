@@ -39,7 +39,7 @@
             gtk3.dev
             gtksourceview5
             libadwaita
-            openssl
+            openssl_legacy.dev
             pandoc
             pango
             pkg-config
@@ -68,6 +68,7 @@
               buildInputs = [
                 pkgs.gdk-pixbuf
                 pkgs.gtk3
+                pkgs.openssl
               ];
               LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
               GTK_THEME="Nordic";
