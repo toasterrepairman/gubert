@@ -12,12 +12,10 @@ use glib::{num_processors};
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::mpsc;
 use std::fs;
-use llm_chain::output::StreamExt;
-use llm_chain::{executor, parameters, prompt};
 use std::string::String;
-use llm_chain::options::ModelRef;
-use llm_chain::options;
-use users::get_current_username;
+use rs_llama_cpp::{gpt_params_c, run_inference, str_to_mut_i8};
+use std::io::{self, Write};
+use std::thread;
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -26,7 +24,7 @@ fn build_ui(application: &Application) {
     // Define window attributes
     let window = ApplicationWindow::new(application);
     window.set_title("Chat with AI");
-    window.set_default_size(700, 400);
+    window.set_default_size(720, 400);
     // prep headerbar
     let header = HeaderBar::new();
     header.set_title(Some("AI Models"));
@@ -184,22 +182,43 @@ fn build_ui(application: &Application) {
         let num_cpus = thread_adjustment.value() as i32;
         println!("habbening =D {}", &text);
         // Get an iterator pointing to the end of the buffer
-        let end_iter = buffer.end_iter();
+        let mut end_iter = buffer.end_iter();
         // Convert the iterator to a mutable iterator
         let mut end_iter_mut = end_iter.clone();
-        println!("{} {}", init, text);
-        buffer.insert(&mut end_iter_mut, &format!(" {}\n{}",
-            entry_buffer.text(),
-            inference(
-                &format!("{} {}\n", init, text),
-                &model_name,
-                stopping,
-                num_cpus,
-                max as i32,
-                temp
-            )
-            .unwrap()));
+        buffer.insert(&mut end_iter_mut, &entry_buffer.text());
         // insert ebic threading code here ( you know ;) )
+        thread::spawn(move || {
+            let params: gpt_params_c = {
+                gpt_params_c {
+                    n_threads: num_cpus,
+                    // n_predict: max as i32,
+                    temp: temp,
+                    use_mlock: false,
+                    use_mmap: true,
+                    model: str_to_mut_i8(&format!("/home/toast/.ai/{}", model_name)),
+                    prompt: str_to_mut_i8(&text),
+                    input_prefix: str_to_mut_i8(&init),
+                    input_suffix: str_to_mut_i8(&text),
+                    ..Default::default()
+                }
+            };
+
+            run_inference(params, |x| {
+                if x.ends_with("[end of text]") {
+                    print!("{}", x.replace("[end of text]", ""));
+                    io::stdout().flush().unwrap();
+
+                    return true; // stop inference
+                }
+
+                print!("{}", x);
+                io::stdout().flush().unwrap();
+
+                return true; // continue inference
+            });
+        });
+
+        // clear entry buffer
         entry_buffer.set_text("");
     }));
 
@@ -236,46 +255,6 @@ fn enumerate_bin_files() -> Vec<String> {
         .collect();
 
     bin_files
-}
-
-#[tokio::main(flavor = "current_thread")]
-async fn inference(prompt: &str, model: &str, pen_nl: bool, threads: i32, max: i32, temp: f32) -> Result<String, Error> {
-    let nuprompt = prompt;
-    let opts = options!(
-        Model: ModelRef::from_path(format!("{}/{}", dirs::home_dir().unwrap().join(".ai").display(), model)),
-        ModelType: "llama",
-        MaxContextSize: 256 as usize,
-        NThreads: threads as usize,
-        MaxTokens: 0_usize,
-        TopK: 40_i32,
-        TopP: 0.95,
-        TfsZ: 1.0,
-        TypicalP: 1.0,
-        Temperature: temp,
-        RepeatPenalty: 1.1,
-        RepeatPenaltyLastN: 64_usize,
-        FrequencyPenalty: 1.1,
-        PresencePenalty: 0.0,
-        Mirostat: 0 as i32,
-        MirostatTau: 5.0,
-        MirostatEta: 0.1,
-        PenalizeNl: pen_nl,
-        StopSequence: vec!["[end of text]".to_string(), "[ end of text ]".to_string(), "\n\n".to_string()]
-    );
-    let exec = executor!(llama, opts.clone())?;
-    println!("Printing execution");
-    let res = prompt!(nuprompt).run(&parameters!(), &exec).await?;
-
-    // println!("{}", res.to_immediate().await?);
-    let mut endbuf = res.as_stream().await?;
-    let mut end = std::string::String::from("");
-    println!("Starting execution");
-
-    while let Some(v) = endbuf.next().await {
-        end.push_str(&format!("{}", v));
-    }
-
-    Ok(end)
 }
 
 fn main() {

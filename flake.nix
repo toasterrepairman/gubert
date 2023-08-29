@@ -71,7 +71,7 @@
                 pkgs.openssl
               ];
               LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-              GTK_THEME="Nordic";
+              # GTK_THEME="Nordic";
               RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
               BINDGEN_EXTRA_CLANG_ARGS = "-isystem ${pkgs.llvmPackages.libclang.lib}/lib/clang/${pkgs.lib.getVersion pkgs.clang}/include";
             };
