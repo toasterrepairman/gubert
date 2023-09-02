@@ -185,48 +185,29 @@ fn build_ui(application: &Application) {
         let mut end_iter = buffer.end_iter();
         // Convert the iterator to a mutable iterator
         let mut end_iter_mut = end_iter.clone();
-        buffer.insert(&mut end_iter_mut, &entry_buffer.text());
+        buffer.insert(&mut end_iter_mut, &format!("\n{}", &entry_buffer.text()));
         // insert ebic threading code here ( you know ;) )
-        thread::spawn(move || {
-            let params: gpt_params_c = {
-                gpt_params_c {
-                    n_threads: num_cpus,
-                    // n_predict: max as i32,
-                    temp: temp,
-                    use_mlock: false,
-                    use_mmap: true,
-                    model: str_to_mut_i8(&format!("/home/toast/.ai/{}", model_name)),
-                    prompt: str_to_mut_i8(&text),
-                    input_prefix: str_to_mut_i8(&init),
-                    input_suffix: str_to_mut_i8(&text),
-                    ..Default::default()
-                }
-            };
-
-            run_inference(params, |x| {
-                if x.ends_with("[end of text]") {
-                    print!("{}", x.replace("[end of text]", ""));
-                    io::stdout().flush().unwrap();
-
-                    return true; // stop inference
-                }
-
-                print!("{}", x);
-                io::stdout().flush().unwrap();
-
-                return true; // continue inference
-            });
-        });
-
+        println!("Working (infer stage): {:?}", &model_name);
         // clear entry buffer
         entry_buffer.set_text("");
     }));
 
     window.add(&vbox);
+    // ctrl + c close
     window.connect_key_press_event(|_, event| {
         if let Some(key) = event.keyval().into() {
             if event.state().contains(gdk::ModifierType::CONTROL_MASK) && key == key::q {
                 gtk::main_quit();
+                Inhibit(true);
+            }
+        }
+        Inhibit(false)
+    });
+    // ctrl + enter for infer
+    window.connect_key_press_event(move |_, event| {
+        if let Some(key) = event.keyval().into() {
+            if event.state().contains(gdk::ModifierType::CONTROL_MASK) && key == key::Return {
+                entry.activate();
                 Inhibit(true);
             }
         }
@@ -256,6 +237,7 @@ fn enumerate_bin_files() -> Vec<String> {
 
     bin_files
 }
+
 
 fn main() {
     let application = Application::builder()
