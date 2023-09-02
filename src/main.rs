@@ -16,6 +16,7 @@ use std::string::String;
 use rs_llama_cpp::{gpt_params_c, run_inference, str_to_mut_i8};
 use std::io::{self, Write};
 use std::thread;
+use posixmq::PosixMq;
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -188,8 +189,34 @@ fn build_ui(application: &Application) {
         buffer.insert(&mut end_iter_mut, &format!("\n{}", &entry_buffer.text()));
         // insert ebic threading code here ( you know ;) )
         println!("Working (infer stage): {:?}", &model_name);
+        let home_dir = dirs::home_dir().unwrap();
+        let ai_dir = home_dir.join(".ai");
+        let model_path = ai_dir.join(&model_name);
+
+        let params: gpt_params_c = {
+            gpt_params_c {
+                model: str_to_mut_i8(&format!("/home/toast/.ai/{}", model_name)),
+                prompt: str_to_mut_i8("Hello "),
+                ..Default::default()
+            }
+        };
+
+        run_inference(params, |token| {
+            println!("Token: {}", token);
+
+            if token.ends_with("\n") {
+                return false; // stop inference
+            }
+
+            return true; // continue inference
+        });
+
         // clear entry buffer
         entry_buffer.set_text("");
+        // Add to text buffer
+        let msg = "placeholder";
+        buffer.insert(&mut end_iter_mut, &msg);
+        println!("{:?}", msg);
     }));
 
     window.add(&vbox);
