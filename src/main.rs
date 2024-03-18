@@ -3,7 +3,7 @@
 
 extern crate gtk;
 
-use anyhow::{Error, Ok};
+use anyhow::{Result, Error, Ok};
 use gtk::prelude::*;
 use gtk::{Application, ApplicationWindow, HeaderBar, Box, Entry, ScrolledWindow, TextView, TextBuffer, ComboBoxText, Orientation, Button, ReliefStyle, Adjustment, Label, SpinButton, Switch, ListBox, Popover, gdk, EntryBuffer, TextTagTable};
 use gdk::{keys::constants as key};
@@ -15,6 +15,8 @@ use std::fs;
 use std::string::String;
 use std::io::{self, Write};
 use std::thread;
+use glib::idle_add;
+use futures::future::Future;
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -33,9 +35,8 @@ fn build_ui(application: &Application) {
     model_combo.set_hexpand(false);
     let bin_files = enumerate_bin_files();
     model_combo.set_size_request(50, -1);
-    for file_name in bin_files {
-        model_combo.append_text(&file_name);
-    }
+    model_combo.append_text("Mistral 7B");
+
     model_combo.set_active(Some(0));
     header.pack_start(&model_combo);
     header.set_hexpand(false);
@@ -187,11 +188,11 @@ fn build_ui(application: &Application) {
         buffer.insert(&mut end_iter_mut, &format!("\n{}", &entry_buffer.text()));
         // insert ebic threading code here ( you know ;) )
         println!("Working (infer stage): {:?}", &model_name);
+
         let home_dir = dirs::home_dir().unwrap();
         let ai_dir = home_dir.join(".ai");
         let model_path = ai_dir.join(&model_name);
 
-        // make it spicy seamour
 
         // clear entry buffer
         entry_buffer.set_text("");
@@ -236,7 +237,7 @@ fn enumerate_bin_files() -> Vec<String> {
             let entry = entry.unwrap();
             let path = entry.path();
 
-            if path.is_file() && path.extension().unwrap() == "bin" {
+            if path.is_file() && path.extension().expect("Aborting, unnamed file extension detected") == "gguf" {
                 Some(path.file_name().unwrap().to_string_lossy().to_string())
             } else {
                 None
@@ -247,6 +248,11 @@ fn enumerate_bin_files() -> Vec<String> {
     bin_files
 }
 
+async fn llm_generate(model: &str, prompt: &str, init: &str, max: u16, sampling: bool, stopping: bool, temp: f32, beams: u8) -> Result<String, anyhow::Error> {
+    let response = "uhm..... cheesed to meet you?";
+
+    Ok(response.to_string())
+}
 
 fn main() {
     let application = Application::builder()
