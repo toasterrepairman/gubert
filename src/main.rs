@@ -17,9 +17,21 @@ use std::io::{self, Write};
 use std::thread;
 use glib::idle_add;
 use futures::future::Future;
-
+use serde_json::{Value};
+use reqwest::blocking::Client;
 use std::rc::Rc;
 use std::cell::RefCell;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug)]
+struct APIResponse {
+    models: Vec<Model>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Model {
+    name: String,
+}
 
 fn build_ui(application: &Application) {
     // Define window attributes
@@ -33,9 +45,11 @@ fn build_ui(application: &Application) {
     // create combobox for headerbar
     let model_combo = ComboBoxText::new();
     model_combo.set_hexpand(false);
-    let bin_files = enumerate_bin_files();
+    let bin_files = enumerate_models();
     model_combo.set_size_request(50, -1);
-    model_combo.append_text("Mistral 7B");
+    for model in enumerate_models() {
+        model_combo.append_text(&model);
+    }
 
     model_combo.set_active(Some(0));
     header.pack_start(&model_combo);
@@ -194,6 +208,7 @@ fn build_ui(application: &Application) {
         let model_path = ai_dir.join(&model_name);
 
 
+
         // clear entry buffer
         entry_buffer.set_text("");
         // Add to text buffer
@@ -228,24 +243,12 @@ fn build_ui(application: &Application) {
     window.show_all();
 }
 
-fn enumerate_bin_files() -> Vec<String> {
-    let dir_path = dirs::home_dir().unwrap().join(".ai");
+fn enumerate_models() -> Vec<String> {
+    let response_text = reqwest::blocking::get("http://localhost:11434/api/tags").unwrap().text().unwrap();
 
-    let bin_files: Vec<String> = fs::read_dir(dir_path)
-        .unwrap()
-        .filter_map(|entry| {
-            let entry = entry.unwrap();
-            let path = entry.path();
+    let api_response: APIResponse = serde_json::from_str(&response_text).unwrap();
 
-            if path.is_file() && path.extension().expect("Aborting, unnamed file extension detected") == "gguf" {
-                Some(path.file_name().unwrap().to_string_lossy().to_string())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    bin_files
+    api_response.models.iter().map(|model| model.name.clone()).collect()
 }
 
 async fn llm_generate(model: &str, prompt: &str, init: &str, max: u16, sampling: bool, stopping: bool, temp: f32, beams: u8) -> Result<String, anyhow::Error> {

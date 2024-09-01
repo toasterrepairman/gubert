@@ -25,7 +25,6 @@
             drv = packages.${name};
           };
           defaultApp = packages.${name};
-
           # `nix develop`
           devShells = {
             default = pkgs.mkShell {
@@ -56,8 +55,17 @@
 		          desktop-file-utils
 		          meson
 		          git
+				  clang
+				  cmake
+				  gcc6
+				  llvmPackages.libclang
 		          wrapGAppsHook4
+				  # cudaPackages.cuda_nvcc
+				  # cudaPackages.cuda_cudart
+				  # cudaPackages.cuda_cccl
+				  # cudaPackages.libcublas
                 ];
+              # LIBCLANG_PATH="${pkgs.llvmPackages_16.libclang.lib}/lib";
             };
           };
         }
